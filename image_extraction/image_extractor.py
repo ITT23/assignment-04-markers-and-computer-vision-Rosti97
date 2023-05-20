@@ -32,14 +32,11 @@ class ImageExtractor:
                 self.warp_image()
         
     def warp_image(self):
-        width = 500
-        height = 300
-
         selection_points = np.float32(self.selected_corners)
-        warp_points = np.float32([[0,0], [width, 0], [width, height], [0, height]])
+        warp_points = np.float32([[0,0], [self.width, 0], [self.width, self.height], [0, self.height]])
 
         matrix = cv2.getPerspectiveTransform(selection_points, warp_points)
-        self.warped_image = cv2.warpPerspective(self.origin_img, matrix, (width, height))
+        self.warped_image = cv2.warpPerspective(self.origin_img, matrix, (self.width, self.height))
 
         cv2.imshow(self.WINDOW_NAME, self.warped_image)
 

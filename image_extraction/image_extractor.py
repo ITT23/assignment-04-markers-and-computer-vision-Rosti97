@@ -7,7 +7,7 @@ class ImageExtractor:
 
     WINDOW_NAME = 'Preview Window'
 
-    def __init__(self, path_in, path_out, width, heigth):
+    def __init__(self, path_in, path_out, width, height):
         try:
             self.img = cv2.imread(path_in)
         except:
@@ -16,7 +16,7 @@ class ImageExtractor:
         self.origin_img = self.img.copy()
         self.path_out = path_out
         self.width = width
-        self.heigth = heigth
+        self.height = height
         self.original = self.img.copy()
         self.warped_image = None
         self.selected_corners = []
@@ -61,13 +61,13 @@ if __name__ == '__main__':
     parser.add_argument('-in', '--input', type=str, help='path of image file to be extracted')
     parser.add_argument('-out', '--output', type=str, help='path of where extraced image file should be saved')
     parser.add_argument('-width', '--width', type=int, help='wished width of extraced image output')
-    parser.add_argument('-heigth', '--heigth', type=int, help='wished height of extraced image output')
+    parser.add_argument('-height', '--height', type=int, help='wished height of extraced image output')
 
     args = parser.parse_args()
 
     if (args.input is not None and args.output is not None and 
-        args.width is not None and args.heigth is not None):
-        extractor = ImageExtractor(args.input, args.output, args.width, args.width)
+        args.width is not None and args.height is not None):
+        extractor = ImageExtractor(args.input, args.output, args.width, args.height)
     else:
         print("Please parse all needed Arguments (Input, Output, Width, Heigth)!")
         print("Example: python3 image_extractor.py -in sample_image.jpg -out final.jpg -width 600 -heigth 400")

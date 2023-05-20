@@ -10,10 +10,9 @@ class ImageExtractor:
     def __init__(self, path_in, path_out, width, heigth):
         try:
             self.img = cv2.imread(path_in)
-            #print(self.img)
         except:
             self.img = cv2.imread('sample_image.jpg')
-            print("path couldn't load, example picture will be shown")
+            print("input image couldn't load, example picture will be shown")
         self.origin_img = self.img.copy()
         self.path_out = path_out
         self.width = width
@@ -47,16 +46,14 @@ class ImageExtractor:
     def show(self):
         while True:
             cv2.imshow(self.WINDOW_NAME, self.img)
-            #hextractor.keyboard_listener()
-
-            key = cv2.waitKey(0)
+            key = cv2.waitKey(0) & 0xFF
             if key == 27:  # restart on esc
                 extractor.selected_corners.clear()
                 self.img = self.original.copy()
-            elif key == ord('s'):
+            elif key == ord('s'): # save on s
                 cv2.imwrite(self.path_out, self.warped_image)
                 print("File saved!")
-            elif key == ord("q"):          
+            elif key == ord("q"): # close on q      
                 break
         cv2.destroyAllWindows()    
 
@@ -71,8 +68,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #print(args.input)
-
     if (args.input is not None and args.output is not None and 
         args.width is not None and args.heigth is not None):
         extractor = ImageExtractor(args.input, args.output, args.width, args.width)
@@ -81,7 +76,6 @@ if __name__ == '__main__':
         print("Example: python3 image_extractor.py -in sample_image.jpg -out final.jpg -width 600 -heigth 400")
         sys.exit()
 
-    #extractor = ImageExtractor('image_extraction/sample_image.jpg', 'test.jpg', 400, 600)
     cv2.namedWindow(extractor.WINDOW_NAME)
     cv2.setMouseCallback(extractor.WINDOW_NAME, extractor.mouse_callback)
     extractor.show()

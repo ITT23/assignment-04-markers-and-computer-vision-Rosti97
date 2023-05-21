@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 import sys
 
+
+# holds extractor code
 class ImageExtractor:
 
     WINDOW_NAME = 'Preview Window'
@@ -24,13 +26,18 @@ class ImageExtractor:
 
     def mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
+            # selection clockwise
+            # first click will be upper left corner later
             self.img = cv2.circle(self.img, (x,y), 5, (255,0,0), -1)
             self.selected_corners.append((x,y))
             cv2.imshow(self.WINDOW_NAME, self.img)
 
+            # 4 corners are selected -> transformation
             if len(self.selected_corners) == 4:
                 self.warp_image()
         
+    # warps the image
+    # selection goes clockwise, so rotated images can be transformed back to readable
     def warp_image(self):
         selection_points = np.float32(self.selected_corners)
         warp_points = np.float32([[0,0], [self.width, 0], [self.width, self.height], [0, self.height]])

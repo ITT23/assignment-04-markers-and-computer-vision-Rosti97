@@ -39,6 +39,7 @@ def cv2glet(img,fmt):
                                    pitch=top_to_bottom_flag*bytes_per_row)
     return pyimg
 
+# holds the code for aruco marker detection and warping the image
 class ArucoDetector():
 
     def __init__(self) -> None:
@@ -54,9 +55,8 @@ class ArucoDetector():
         return self.frame
     
     def order_points(self, pts):
-        # desperate hour long google search:
+        # desperate hour long google search brought me here:
         # https://pyimagesearch.com/2016/03/21/ordering-coordinates-clockwise-with-python-and-opencv/
-        # i feel dumb for not knowing any other solution ups
         rect = np.zeros((4, 2), dtype = "float32")
 
         s = pts.sum(axis = 1)
@@ -69,6 +69,7 @@ class ArucoDetector():
 
         return rect
 
+    # gets the current frame from webcam
     def detect_markers(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
@@ -76,22 +77,19 @@ class ArucoDetector():
         if ids is not None:
             #aruco.drawDetectedMarkers(frame, corners)
 
+            # left upper corner gets appended to array
             for c in corners:
                 self.corners.append([c[0][0][0], c[0][0][1]])
-            
-            #print(f"Length: {len(self.corners)}")
 
-            orderd_stuff = self.order_points(np.array(self.corners))
+            # array of left upper corners gets sorted
+            # left up marker is now first in array
+            ordered_corners = self.order_points(np.array(self.corners))
 
+            # as soon as all markers ar detected, the warping/transformation of image is done
             if len(self.corners) == 4:
-                # print(".")
-                selection_points = np.float32(orderd_stuff)
+                selection_points = np.float32(ordered_corners)
+                selection_points[3][0] += 20
                 warp_points = np.float32([[0,0], [WINDOW_WIDTH,0], [WINDOW_WIDTH, WINDOW_HEIGHT], [0,WINDOW_HEIGHT]])
-
-                # print(selection_points)
-                # print(warp_points)
-                # print("--")
-
 
                 matrix = cv2.getPerspectiveTransform(selection_points, warp_points)
                 img_warp = cv2.warpPerspective(frame, matrix, (WINDOW_WIDTH, WINDOW_HEIGHT),flags=cv2.INTER_LINEAR)
@@ -99,20 +97,20 @@ class ArucoDetector():
                 self.frame = img_warp
                 self.detected = True
 
-            else:
+            else: # if no all markers are detected: display normal webcam picture
                 self.frame = frame
                 self.detected = False
-            
+            # pretends overflow with detected corners
             self.corners.clear()
-        else:
+        else: # displays normal webcam picture if no markers at all are being detected
             self.frame = frame 
             self.detected = False
 
-
+# holds the contouring/threshold code for fingerdetection
 class ContourDetector():
 
     def __init__(self) -> None:
-        self.threshold = 140
+        self.threshold = 140 # worked best in my light situation, may be different in different rooms
         self.out = None
         self.collided = False
         self.collided_black = False
@@ -120,7 +118,8 @@ class ContourDetector():
     def set_frame(self, frame):
         self.frame = frame
     
-    # https://github.com/madhav727/hand-detection-and-finger-counting/blob/master/finger_counting_video.py
+    # code from: https://github.com/madhav727/hand-detection-and-finger-counting/blob/master/finger_counting_video.py
+    # because my old threshold code couldn't detect fingers steady
     def skinmask(self, img):
         hsvim = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lower = np.array([0, 48, 80], dtype = "uint8")
@@ -139,50 +138,37 @@ class ContourDetector():
     def detect_collision(self, frame):
         self.collided_black = False
         self.collided = False
-        mask_img = self.skinmask(frame)
+        mask_img = self.skinmask(frame) # gets better detection of finger through colorspace
 
         contours, hierarchy = cv2.findContours(mask_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        #contours = max(contours, key=lambda x: cv2.contourArea(x))
-        #hull = cv2.convexHull(contours)
 
-        c = cv2.drawContours(frame, contours, -1, (255,255,0), 2)
-
+        # collision check with contour and game items
         for item in GameItems.items:
             for contour in contours:
                 x = contour[0][0][0]
                 y = contour[0][0][1]
 
-                y2 = WINDOW_HEIGHT - y
-                #print(f"x: {x}, y: {y2}")
+                y2 = WINDOW_HEIGHT - y # because coordinates work differently in opencv and pyglet
 
-                #print(f"item1: {WINDOW_HEIGHT - GameItems.items[0].y}, i2: {WINDOW_HEIGHT-item.y-50},  y: {y}")
-                #print(f"item1: {GameItems.items[0].y}, i2: {item.y-50},  y: {y}")
-
-                # x != 0 and and y <= WINDOW_WIDTH-item.y
-                # x <= item.x+50
-                if (x + 50 >= item.x and x <= GameItems.FINGER_SLIDER_X + 50
-                    #and y <= WINDOW_HEIGHT-item.y-70 and y >= WINDOW_HEIGHT-item.y-50+70 ):
+                # collision detection 
+                # finger has to be left of finger slide (black rectangle)
+                if (x + 10 >= item.x and x <= GameItems.FINGER_SLIDER_X 
                     and y2 <= item.y + 50 + 30 and y2 >= item.y - 30):
                     GameItems.items.remove(item)
                     self.collided = True
                     if item.color == (0,0,0,255):
                         self.collided_black = True
                     break
-                #t.color = (0,0,255)
-                #print(f"{x},{y}")
-                #break
 
-                #t.color = (0,255,0)
-       # self.out = c
-
+# holds all game items (rectangles to destroy, labels)
 class GameItems:
 
     items = []
-    FINGER_SLIDER_X = 120
+    FINGER_SLIDER_X = 120 # x coordinate of finger slide
 
     def __init__(self) -> None:
         self._start_y_points = [100, 180, 260, 340]
-        self._colors = [(0,0,0), (255,0,0), (0,255,0), (0,0,255), (255,0,0), (0,255,0), (0,0,255)]
+        self._colors = [(0,0,0), (255,0,0), (0,255,0), (0,0,255)]
         self.width = 50
         self.height = 50
         self.x = WINDOW_WIDTH  + self.width
@@ -190,10 +176,11 @@ class GameItems:
         self.score = 0
         self.score_label = pyglet.text.Label('Score:', font_name="Times New Roman",
                                              font_size=20,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT-50, anchor_x='center',
-                                             color=(232,98,82,255))
+                                             color=(10 ,10,10,255))
 
+    # creates new rectangles to be destroyed with finger interaction
     def create_item(self):
-        if random.randint(0,25) == 0:
+        if random.randint(0,15) == 0:
             y = self._start_y_points[random.randint(0, len(self._start_y_points)-1)]
             color = self._colors[random.randint(0, len(self._colors)-1)]
             rec = pyglet.shapes.Rectangle(x=self.x, y=y, width=self.width, height=self.height, color=color)
@@ -216,8 +203,8 @@ class GameItems:
         self.score += 15
         self.score_label.text = f"Score: {self.score}"
     
-    def reset_score(self):
-        self.score += 15
+    def minus_score(self):
+        self.score -= 20
         self.score_label.text = f"Score: {self.score}"
 
 
@@ -227,8 +214,6 @@ window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
 arucoDet = ArucoDetector()
 contourDet = ContourDetector()
 game = GameItems()
-t = pyglet.shapes.Rectangle(x=0, y=300, width=WINDOW_WIDTH, height=2, color=(20,20,20))
-t2 = pyglet.shapes.Rectangle(x=0, y=100, width=WINDOW_WIDTH, height=2, color=(20,20,20))
 
 @window.event
 def on_show():
@@ -241,43 +226,29 @@ def on_draw():
     window.clear()
  
     ret, frame = cap.read()
-    #img = cv2glet(frame, 'BGR')
-
-    ret, frame = cap.read()
 
     arucoDet.detect_markers(frame)
     test = arucoDet.getFrame()
-
-    # t = pyglet.text.Label('Score:', font_name="Times New Roman",
-    #                                          font_size=20,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT-50, anchor_x='center',
-    #                                          color=(232,98,82,255))
-
 
     if arucoDet.detected:
         game.create_item()
         game.update_items()
         contourDet.detect_collision(test)
+
         if (contourDet.is_collided() and contourDet.is_black_rec_coll()):
-            print("death")
+            # rectangle is destroyed but it was the black one
+            game.minus_score()
         elif (contourDet.is_collided() and not contourDet.is_black_rec_coll()):
+            # rectangle is destroyed and it was a colored one
             game.add_score()
+
         img = cv2glet(test, 'BGR')
         img.blit(0, 0, 0) 
         game.draw_items()
-        t.draw()
-        t2.draw()
-        
-    else:
+
+    else: # no detection of markers -> show normal webcam
         img = cv2glet(test, 'BGR')
         img.blit(0, 0, 0)
-
-    #t.draw()
-
-    
-    # Wait for a key press and check if it's the 'q' key
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        print("ups")
-
 
 if __name__ == '__main__':
     pyglet.app.run()

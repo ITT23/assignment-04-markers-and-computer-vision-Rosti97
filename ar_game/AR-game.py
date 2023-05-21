@@ -168,19 +168,23 @@ class GameItems:
 
     def __init__(self) -> None:
         self._start_y_points = [100, 180, 260, 340]
-        self._colors = [(0,0,0), (255,0,0), (0,255,0), (0,0,255)]
+        self._colors = [(0,0,0), (159, 126, 105), (166, 195, 111), (0, 78, 137)]
         self.width = 50
         self.height = 50
         self.x = WINDOW_WIDTH  + self.width
         self.finger_slider = pyglet.shapes.Rectangle(x=self.FINGER_SLIDER_X, y=0, width=2, height=WINDOW_HEIGHT, color=(20,20,20))
         self.score = 0
-        self.score_label = pyglet.text.Label('Score:', font_name="Times New Roman",
+        self.score_label = pyglet.text.Label('Score: 0 | Lives: 3', font_name="Times New Roman",
                                              font_size=20,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT-50, anchor_x='center',
                                              color=(10 ,10,10,255))
+        self.end_label = pyglet.text.Label('You died, press Q to quit', font_name="Times New Roman",
+                                             font_size=40,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT/2, anchor_x='center',
+                                             anchor_y='center', color=(150 , 150, 150 ,255))
+        self.lives = 3
 
     # creates new rectangles to be destroyed with finger interaction
     def create_item(self):
-        if random.randint(0,15) == 0:
+        if random.randint(0,15) == 0: # change 15 to whatever to fasten up / slow down the game
             y = self._start_y_points[random.randint(0, len(self._start_y_points)-1)]
             color = self._colors[random.randint(0, len(self._colors)-1)]
             rec = pyglet.shapes.Rectangle(x=self.x, y=y, width=self.width, height=self.height, color=color)
@@ -199,13 +203,24 @@ class GameItems:
             if item.x + self.width <= 0:
                 GameItems.items.remove(item)
 
+    def draw_end(self):
+        self.end_label.draw()
+
+    def check_alive(self):
+        if self.lives == 0:
+            return False
+        else:
+            return True
+
     def add_score(self):
         self.score += 15
-        self.score_label.text = f"Score: {self.score}"
+        self.score_label.text = f"Score: {self.score} | Lives: {self.lives}"
     
     def minus_score(self):
         self.score -= 20
-        self.score_label.text = f"Score: {self.score}"
+        if self.lives >= 1:
+            self.lives -= 1
+            self.score_label.text = f"Score: {self.score} | Lives: {self.lives}"
 
 
 cap = cv2.VideoCapture(video_id)
@@ -222,6 +237,12 @@ def on_show():
     contourDet.set_frame(frame) 
 
 @window.event
+def on_key_press(symbol, modifiers):
+    if symbol == pyglet.window.key.Q:
+        sys.exit(0)
+
+
+@window.event
 def on_draw():
     window.clear()
  
@@ -231,24 +252,29 @@ def on_draw():
     test = arucoDet.getFrame()
 
     if arucoDet.detected:
-        game.create_item()
-        game.update_items()
-        contourDet.detect_collision(test)
+        if game.check_alive():
+            game.create_item()
+            game.update_items()
+            contourDet.detect_collision(test)
 
-        if (contourDet.is_collided() and contourDet.is_black_rec_coll()):
-            # rectangle is destroyed but it was the black one
-            game.minus_score()
-        elif (contourDet.is_collided() and not contourDet.is_black_rec_coll()):
-            # rectangle is destroyed and it was a colored one
-            game.add_score()
+            if (contourDet.is_collided() and contourDet.is_black_rec_coll()):
+                # rectangle is destroyed but it was the black one
+                game.minus_score()
+            elif (contourDet.is_collided() and not contourDet.is_black_rec_coll()):
+                # rectangle is destroyed and it was a colored one
+                game.add_score()
 
-        img = cv2glet(test, 'BGR')
-        img.blit(0, 0, 0) 
-        game.draw_items()
+            img = cv2glet(test, 'BGR')
+            img.blit(0, 0, 0) 
+            game.draw_items()
+        else:
+            game.draw_end()
 
     else: # no detection of markers -> show normal webcam
         img = cv2glet(test, 'BGR')
         img.blit(0, 0, 0)
+        if not game.check_alive():
+            game.draw_end()
 
 if __name__ == '__main__':
     pyglet.app.run()

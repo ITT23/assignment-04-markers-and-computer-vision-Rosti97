@@ -76,8 +76,8 @@ if __name__ == '__main__':
         args.width is not None and args.height is not None):
         extractor = ImageExtractor(args.input, args.output, args.width, args.height)
     else:
-        print("Please parse all needed Arguments (Input, Output, Width, Heigth)!")
-        print("Example: python3 image_extractor.py -in sample_image.jpg -out final.jpg -width 600 -heigth 400")
+        print("Please parse all needed Arguments (Input, Output, Width, Height)!")
+        print("Example: python3 image_extractor.py -in sample_image.jpg -out final.jpg -width 600 -height 400")
         sys.exit()
 
     cv2.namedWindow(extractor.WINDOW_NAME)

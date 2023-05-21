@@ -8,6 +8,8 @@ To start you have to parse some arguments:
 *example*:
 `python3 image_extractor.py -in sample_image.jpg -out final.jpg -width 600 -height 400`
 
+if image cannot be loaded, the sample image will be taken
+
 ### Workflow:
 - select first the corner that will be the upper left corner in the end
 - select following corners clockwise
@@ -19,7 +21,8 @@ To start you have to parse some arguments:
 
 # Task 2:
 - after start of application hold you paper with aruco-markers in webcam
-- place your left finger on the paper, but dont exceed the black line
+- place your right finger on the paper, but dont exceed the black line
 - colored boxes will appear and move to the left
 - you can destroy them with sliding your finger over them, as soon as they cross the line
-- if you destroy a black box you will get minus points
+- if you destroy a black box you will get minus points and lose one life
+- to close game, press "q"

@@ -5,6 +5,7 @@ import numpy as np
 import pyglet
 from PIL import Image
 import sys
+import random
 
 video_id = 0
 
@@ -71,7 +72,7 @@ class ArucoDetector():
         corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
 
         if ids is not None:
-            aruco.drawDetectedMarkers(frame, corners)
+            #aruco.drawDetectedMarkers(frame, corners)
 
             for c in corners:
                 self.corners.append([c[0][0][0], c[0][0][1]])
@@ -108,12 +109,6 @@ class ArucoDetector():
 
 class ContourDetector():
 
-
-    # Rectangle 
-    # Wir gehen für jeden contours in Contours durch
-    # ob x/y zwischen x/y von Rectangle liegt
-
-
     def __init__(self) -> None:
         self.threshold = 140
         self.out = None
@@ -132,7 +127,7 @@ class ContourDetector():
         ret, thresh = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY)
         return thresh
 
-    def detect_collision(self, frame, t, p):
+    def detect_collision(self, frame):
         mask_img = self.skinmask(frame)
 
         contours, hierarchy = cv2.findContours(mask_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -141,18 +136,54 @@ class ContourDetector():
 
         c = cv2.drawContours(frame, contours, -1, (255,255,0), 2)
 
-        for contour in contours:
-            x = contour[0][0][0]
-            y = contour[0][0][1]
+        for item in GameItems.items:
+            for contour in contours:
+                x = contour[0][0][0]
+                y = contour[0][0][1]
 
-            if x != 0 and x >= t.x and x <= t.x+50:
-              t.color = (0,0,255)
-              print(f"{x},{y}")
-              break
+                # x != 0 and and y <= WINDOW_WIDTH-item.y
+                if x >= item.x and x <= item.x+50 and x <= GameItems.FINGER_SLIDER_X + 50:
+                    GameItems.items.remove(item)
+                    break
+                #t.color = (0,0,255)
+                #print(f"{x},{y}")
+                #break
 
-            t.color = (0,255,0)
-
+                #t.color = (0,255,0)
         self.out = c
+
+class GameItems:
+
+    items = []
+    FINGER_SLIDER_X = 120
+
+    def __init__(self) -> None:
+        self._start_y_points = [100, 180, 260, 340]
+        self._colors = [(0,0,0), (255,0,0), (0,255,0), (0,0,255), (255,0,0), (0,255,0), (0,0,255)]
+        self.width = 50
+        self.height = 50
+        self.x = WINDOW_WIDTH  + self.width
+        self.finger_slider = pyglet.shapes.Rectangle(x=self.FINGER_SLIDER_X, y=0, width=2, height=WINDOW_HEIGHT, color=(20,20,20))
+
+    def create_item(self):
+        if random.randint(0,40) == 0:
+            y = self._start_y_points[random.randint(0, len(self._start_y_points)-1)]
+            color = self._colors[random.randint(0, len(self._colors)-1)]
+            rec = pyglet.shapes.Rectangle(x=self.x, y=y, width=self.width, height=self.height, color=color)
+            GameItems.items.append(rec)
+
+    def draw_items(self):
+        self.finger_slider.draw()
+        for item in GameItems.items:
+            item.draw()
+
+    def update_items(self):
+        for item in GameItems.items:
+            item.x -= 10
+
+            if item.x + self.width <= 0:
+                GameItems.items.remove(item)
+    
 
 
 cap = cv2.VideoCapture(video_id)
@@ -163,8 +194,11 @@ WINDOW_HEIGHT = 480
 window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
 detector = ArucoDetector()
 contourd = ContourDetector()
-t = pyglet.shapes.Rectangle(x=100, y= 250, width=50, height=50, color=(50,225,30))
-p = pyglet.shapes.Rectangle(x=150, y= 150, width=50, height=50, color=(255,0,0))
+game = GameItems()
+# t = pyglet.shapes.Rectangle(x=100, y= 90, width=50, height=50, color=(50,225,30))
+# z = pyglet.shapes.Rectangle(x=100, y= 180, width=50, height=50, color=(50,225,30))
+# u = pyglet.shapes.Rectangle(x=100, y= 270, width=50, height=50, color=(50,225,30))
+# i = pyglet.shapes.Rectangle(x=100, y= 360, width=50, height=50, color=(50,225,30))
 
 
 @window.event
@@ -172,13 +206,13 @@ def on_show():
     ret, frame = cap.read()
     detector.setFrame(frame)
     contourd.set_frame(frame)
+
     
 
 @window.event
 def on_draw():
     window.clear()
-
-    
+ 
     ret, frame = cap.read()
     #img = cv2glet(frame, 'BGR')
 
@@ -188,12 +222,18 @@ def on_draw():
     test = detector.getFrame()
 
     if detector.detected:
-        contour_test = contourd.detect_collision(test, t, p)
-        if contour_test:
-            p.draw()
+        contourd.detect_collision(test)
         img = cv2glet(contourd.out, 'BGR')
+        img.blit(0, 0, 0)
+        game.create_item()
+
+        game.update_items()
+
+        game.draw_items()
+        
     else:
         img = cv2glet(test, 'BGR')
+        img.blit(0, 0, 0)
 
     
     
@@ -221,6 +261,16 @@ def on_draw():
     if cv2.waitKey(1) & 0xFF == ord('q'):
         print("ups")
 
-    img.blit(0, 0, 0)
-    t.draw()
+    #img.blit(0, 0, 0)
+
+    # game.create_item()
+
+    # game.update_items()
+
+    # game.draw_items()
+    # t.draw()
+    # z.draw()
+    # u.draw()
+    # i.draw()
+
 pyglet.app.run()

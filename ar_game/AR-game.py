@@ -8,6 +8,8 @@ import sys
 import random
 
 video_id = 0
+WINDOW_WIDTH = 640
+WINDOW_HEIGHT = 480
 
 if len(sys.argv) > 1:
     video_id = int(sys.argv[1])
@@ -102,9 +104,9 @@ class ArucoDetector():
                 self.detected = False
             
             self.corners.clear()
-
         else:
             self.frame = frame 
+            self.detected = False
 
 
 class ContourDetector():
@@ -112,7 +114,8 @@ class ContourDetector():
     def __init__(self) -> None:
         self.threshold = 140
         self.out = None
-        pass
+        self.collided = False
+        self.collided_black = False
 
     def set_frame(self, frame):
         self.frame = frame
@@ -126,8 +129,16 @@ class ContourDetector():
         blurred = cv2.blur(skinRegionHSV, (2,2))
         ret, thresh = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY)
         return thresh
+    
+    def is_collided(self):
+        return self.collided
+    
+    def is_black_rec_coll(self):
+        return self.collided_black
 
     def detect_collision(self, frame):
+        self.collided_black = False
+        self.collided = False
         mask_img = self.skinmask(frame)
 
         contours, hierarchy = cv2.findContours(mask_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -141,16 +152,28 @@ class ContourDetector():
                 x = contour[0][0][0]
                 y = contour[0][0][1]
 
+                y2 = WINDOW_HEIGHT - y
+                #print(f"x: {x}, y: {y2}")
+
+                #print(f"item1: {WINDOW_HEIGHT - GameItems.items[0].y}, i2: {WINDOW_HEIGHT-item.y-50},  y: {y}")
+                #print(f"item1: {GameItems.items[0].y}, i2: {item.y-50},  y: {y}")
+
                 # x != 0 and and y <= WINDOW_WIDTH-item.y
-                if x >= item.x and x <= item.x+50 and x <= GameItems.FINGER_SLIDER_X + 50:
+                # x <= item.x+50
+                if (x + 50 >= item.x and x <= GameItems.FINGER_SLIDER_X + 50
+                    #and y <= WINDOW_HEIGHT-item.y-70 and y >= WINDOW_HEIGHT-item.y-50+70 ):
+                    and y2 <= item.y + 50 + 30 and y2 >= item.y - 30):
                     GameItems.items.remove(item)
+                    self.collided = True
+                    if item.color == (0,0,0,255):
+                        self.collided_black = True
                     break
                 #t.color = (0,0,255)
                 #print(f"{x},{y}")
                 #break
 
                 #t.color = (0,255,0)
-        self.out = c
+       # self.out = c
 
 class GameItems:
 
@@ -164,9 +187,13 @@ class GameItems:
         self.height = 50
         self.x = WINDOW_WIDTH  + self.width
         self.finger_slider = pyglet.shapes.Rectangle(x=self.FINGER_SLIDER_X, y=0, width=2, height=WINDOW_HEIGHT, color=(20,20,20))
+        self.score = 0
+        self.score_label = pyglet.text.Label('Score:', font_name="Times New Roman",
+                                             font_size=20,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT-50, anchor_x='center',
+                                             color=(232,98,82,255))
 
     def create_item(self):
-        if random.randint(0,40) == 0:
+        if random.randint(0,25) == 0:
             y = self._start_y_points[random.randint(0, len(self._start_y_points)-1)]
             color = self._colors[random.randint(0, len(self._colors)-1)]
             rec = pyglet.shapes.Rectangle(x=self.x, y=y, width=self.width, height=self.height, color=color)
@@ -174,6 +201,7 @@ class GameItems:
 
     def draw_items(self):
         self.finger_slider.draw()
+        self.score_label.draw()
         for item in GameItems.items:
             item.draw()
 
@@ -183,31 +211,30 @@ class GameItems:
 
             if item.x + self.width <= 0:
                 GameItems.items.remove(item)
+
+    def add_score(self):
+        self.score += 15
+        self.score_label.text = f"Score: {self.score}"
     
+    def reset_score(self):
+        self.score += 15
+        self.score_label.text = f"Score: {self.score}"
 
 
 cap = cv2.VideoCapture(video_id)
 
-WINDOW_WIDTH = 640
-WINDOW_HEIGHT = 480
-
 window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
-detector = ArucoDetector()
-contourd = ContourDetector()
+arucoDet = ArucoDetector()
+contourDet = ContourDetector()
 game = GameItems()
-# t = pyglet.shapes.Rectangle(x=100, y= 90, width=50, height=50, color=(50,225,30))
-# z = pyglet.shapes.Rectangle(x=100, y= 180, width=50, height=50, color=(50,225,30))
-# u = pyglet.shapes.Rectangle(x=100, y= 270, width=50, height=50, color=(50,225,30))
-# i = pyglet.shapes.Rectangle(x=100, y= 360, width=50, height=50, color=(50,225,30))
-
+t = pyglet.shapes.Rectangle(x=0, y=300, width=WINDOW_WIDTH, height=2, color=(20,20,20))
+t2 = pyglet.shapes.Rectangle(x=0, y=100, width=WINDOW_WIDTH, height=2, color=(20,20,20))
 
 @window.event
 def on_show():
     ret, frame = cap.read()
-    detector.setFrame(frame)
-    contourd.set_frame(frame)
-
-    
+    arucoDet.setFrame(frame)
+    contourDet.set_frame(frame) 
 
 @window.event
 def on_draw():
@@ -218,59 +245,39 @@ def on_draw():
 
     ret, frame = cap.read()
 
-    detector.detect_markers(frame)
-    test = detector.getFrame()
+    arucoDet.detect_markers(frame)
+    test = arucoDet.getFrame()
 
-    if detector.detected:
-        contourd.detect_collision(test)
-        img = cv2glet(contourd.out, 'BGR')
-        img.blit(0, 0, 0)
+    # t = pyglet.text.Label('Score:', font_name="Times New Roman",
+    #                                          font_size=20,x=WINDOW_WIDTH /2, y=WINDOW_HEIGHT-50, anchor_x='center',
+    #                                          color=(232,98,82,255))
+
+
+    if arucoDet.detected:
         game.create_item()
-
         game.update_items()
-
+        contourDet.detect_collision(test)
+        if (contourDet.is_collided() and contourDet.is_black_rec_coll()):
+            print("death")
+        elif (contourDet.is_collided() and not contourDet.is_black_rec_coll()):
+            game.add_score()
+        img = cv2glet(test, 'BGR')
+        img.blit(0, 0, 0) 
         game.draw_items()
+        t.draw()
+        t2.draw()
         
     else:
         img = cv2glet(test, 'BGR')
         img.blit(0, 0, 0)
 
+    #t.draw()
+
     
-    
-
-    # Convert the frame to grayscale
-    #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Detect ArUco markers in the frame
-    # corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)
-
-    #test = np.array(ids)
-    
-
-    # Check if marker is detected
-    # if ids is not None:
-    #     # Draw lines along the sides of the marker
-    #     aruco.drawDetectedMarkers(frame, corners)
-
-    # else:
-    #     # Display the frame
-    #     #cv2.imshow('frame', frame)
-    #     img = cv2glet(frame, 'BGR')
-
     # Wait for a key press and check if it's the 'q' key
     if cv2.waitKey(1) & 0xFF == ord('q'):
         print("ups")
 
-    #img.blit(0, 0, 0)
 
-    # game.create_item()
-
-    # game.update_items()
-
-    # game.draw_items()
-    # t.draw()
-    # z.draw()
-    # u.draw()
-    # i.draw()
-
-pyglet.app.run()
+if __name__ == '__main__':
+    pyglet.app.run()

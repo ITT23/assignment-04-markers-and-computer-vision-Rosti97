@@ -8,8 +8,6 @@ import sys
 import random
 
 video_id = 0
-WINDOW_WIDTH = 640
-WINDOW_HEIGHT = 480
 
 if len(sys.argv) > 1:
     video_id = int(sys.argv[1])
@@ -225,6 +223,12 @@ class GameItems:
 
 cap = cv2.VideoCapture(video_id)
 
+WINDOW_WIDTH = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+WINDOW_HEIGHT = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+# WINDOW_WIDTH = 640
+# WINDOW_HEIGHT = 480
+
 window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
 arucoDet = ArucoDetector()
 contourDet = ContourDetector()
@@ -233,6 +237,7 @@ game = GameItems()
 @window.event
 def on_show():
     ret, frame = cap.read()
+    frame = cv2.flip(frame, 0) # remove this when CAP_PROB_FRAME removed
     arucoDet.setFrame(frame)
     contourDet.set_frame(frame) 
 

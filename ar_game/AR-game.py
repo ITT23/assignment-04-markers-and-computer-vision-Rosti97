@@ -115,40 +115,44 @@ class ContourDetector():
 
 
     def __init__(self) -> None:
-        self.threshold = 100
+        self.threshold = 140
         self.out = None
         pass
 
     def set_frame(self, frame):
         self.frame = frame
+    
+    # https://github.com/madhav727/hand-detection-and-finger-counting/blob/master/finger_counting_video.py
+    def skinmask(self, img):
+        hsvim = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        lower = np.array([0, 48, 80], dtype = "uint8")
+        upper = np.array([20, 255, 255], dtype = "uint8")
+        skinRegionHSV = cv2.inRange(hsvim, lower, upper)
+        blurred = cv2.blur(skinRegionHSV, (2,2))
+        ret, thresh = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY)
+        return thresh
 
-    def measure_distance(self, x1:int, y1:int, x2:int, y2:int) -> float:
-        """measures the distance between two coordinates"""
-        distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-        return distance
+    def detect_collision(self, frame, t, p):
+        mask_img = self.skinmask(frame)
 
-    def detect_collision(self, frame, t):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        contours, hierarchy = cv2.findContours(mask_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        #contours = max(contours, key=lambda x: cv2.contourArea(x))
+        #hull = cv2.convexHull(contours)
 
-        ret, tresh = cv2.threshold(gray, self.threshold, 255, cv2.THRESH_BINARY_INV)
-
-        contours, hierachy = cv2.findContours(tresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        img_contours = cv2.drawContours(frame, contours, -1, (255,0,0), 3)
-
-        test_array = []
+        c = cv2.drawContours(frame, contours, -1, (255,255,0), 2)
 
         for contour in contours:
             x = contour[0][0][0]
             y = contour[0][0][1]
 
-            if x != 0 and x >= 400 and x <= 600 and y>=410:
+            if x != 0 and x >= t.x and x <= t.x+50:
               t.color = (0,0,255)
-              print(x)
+              print(f"{x},{y}")
+              break
 
+            t.color = (0,255,0)
 
-
-        self.out =  img_contours
+        self.out = c
 
 
 cap = cv2.VideoCapture(video_id)
@@ -159,6 +163,9 @@ WINDOW_HEIGHT = 480
 window = pyglet.window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
 detector = ArucoDetector()
 contourd = ContourDetector()
+t = pyglet.shapes.Rectangle(x=100, y= 250, width=50, height=50, color=(50,225,30))
+p = pyglet.shapes.Rectangle(x=150, y= 150, width=50, height=50, color=(255,0,0))
+
 
 @window.event
 def on_show():
@@ -171,7 +178,7 @@ def on_show():
 def on_draw():
     window.clear()
 
-    t = pyglet.shapes.Rectangle(x=400, y= 410, width=50, height=50, color=(50,225,30))
+    
     ret, frame = cap.read()
     #img = cv2glet(frame, 'BGR')
 
@@ -181,7 +188,9 @@ def on_draw():
     test = detector.getFrame()
 
     if detector.detected:
-        contour_test = contourd.detect_collision(test, t)
+        contour_test = contourd.detect_collision(test, t, p)
+        if contour_test:
+            p.draw()
         img = cv2glet(contourd.out, 'BGR')
     else:
         img = cv2glet(test, 'BGR')
